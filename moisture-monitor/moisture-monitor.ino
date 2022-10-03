@@ -17,6 +17,7 @@
 // ....arduino15/packages/esp32/hardware/esp32/1.0.6/variants/heltec_wifi_kit_32/pins_arduino.h
 // https://randomnerdtutorials.com/esp32-send-email-smtp-server-arduino-ide/
 
+#include "secret.h"
 
 // OLED graphics
 
