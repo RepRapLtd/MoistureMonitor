@@ -27,7 +27,15 @@ U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, 16, 15, 4);
 // 
 
 const int aInPin = A14; //GPIO 13, PIN 5 counting from top left, 
-float voltage;
+float percentage;
+float average = 50.0; // Bayesean...
+float moving = 5.0;
+float dry = 2485.0;
+float wet = 970.0;
+float threshold = 40.0;
+char warn = ' ';
+
+unsigned long tim, lastTim, interval;
 
 void setup()
 {
@@ -43,24 +51,47 @@ void setup()
   u8g2.setFontDirection(0);
 
   u8g2.clearBuffer();
-  sprintf(chBuffer, "%s", "Const. I starting...");
+  sprintf(chBuffer, "%s", "Water % starting...");
   u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
   u8g2.sendBuffer();
   delay(1000);
+  lastTim = millis();
+  interval = 1000*5; //*24*3600; // One day in ms.
+}
+
+void SendEmail()
+{
+  warn = '*';
 }
 
  
 void loop()
 {  
-  voltage = (float)map(analogRead(aInPin), 0, 3000, 150, 2450);
+  percentage = (float)analogRead(aInPin);
+  percentage = 100.0*(dry - percentage)/(dry - wet);
+  average = (moving*average + percentage)/(moving + 1.0);
 
   // Display it
   
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_crox5h_tf);  
-  sprintf(chBuffer, "%.2f (V)", voltage); 
+  sprintf(chBuffer, "%c%d%% water", warn, (int)(average + 0.5)); 
   u8g2.drawStr(10, 10, chBuffer);
   u8g2.sendBuffer();
+
+  tim = millis();
+
+  if (tim - lastTim >= interval) 
+  {
+    lastTim = tim;
+    if(average < threshold)
+    {
+      SendEmail();
+    } else
+    {
+      warn = ' ';
+    }
+  }
   
   delay(1000);
 }
