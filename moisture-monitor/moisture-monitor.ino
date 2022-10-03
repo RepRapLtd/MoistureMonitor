@@ -62,7 +62,7 @@ void setup()
 
 void SendEmail()
 {
-  warn = '*';
+
 }
 
  
@@ -80,18 +80,21 @@ void loop()
   u8g2.drawStr(10, 10, chBuffer);
   u8g2.sendBuffer();
 
+  if(average < threshold)
+  {
+      warn = '*';
+  } else
+  {
+      warn = ' ';
+  }
+
   tim = millis();
 
   if (tim - lastTim >= interval) 
   {
     lastTim = tim;
-    if(average < threshold)
-    {
+    if(warn != ' ')
       SendEmail();
-    } else
-    {
-      warn = ' ';
-    }
   }
   
   delay(1000);
