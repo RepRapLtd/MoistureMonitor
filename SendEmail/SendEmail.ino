@@ -43,7 +43,6 @@
 char chBuffer[128];
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, 16, 15, 4);
 
-// 
 
 const int aInPin = A14; //GPIO 13, PIN 5 counting from top left, 
 float percentage;
@@ -85,11 +84,8 @@ unsigned long tryMailAgain = 10000;
  */
 
 
-/* Declare the global used SMTPSession object for SMTP transport */
-SMTPSession smtp;
 
-/* Callback function to get the Email sending status */
-void smtpCallback(SMTP_Status status);
+
 
 const char rootCACert[] PROGMEM = "-----BEGIN CERTIFICATE-----\n"
                                   "-----END CERTIFICATE-----\n";
@@ -98,9 +94,63 @@ unsigned char debug = 1; // 0 to turn off logging
 
 bool mailSent = true;
 
+SMTPSession *smtp;
+ESP_Mail_Session* session;
+SMTP_Message* message;
+
+/* Callback function to get the Email sending status */
+void smtpCallback(SMTP_Status status)
+{
+    
+  /* Print the current status */
+  if(debug)
+    Serial.println(status.info());
+
+  /* Print the sending result */
+  if (status.success())
+  {
+    if(debug)
+    {
+      // ESP_MAIL_PRINTF used in the examples is for format printing via debug Serial port
+      // that works for all supported Arduino platform SDKs e.g. AVR, SAMD, ESP32 and ESP8266.
+      // In ESP32 and ESP32, you can use Serial.printf directly.
+  
+      Serial.println("----------------");
+      ESP_MAIL_PRINTF("Message sent success: %d\n", status.completedCount());
+      ESP_MAIL_PRINTF("Message sent failed: %d\n", status.failedCount());
+      Serial.println("----------------\n");
+  
+      for (size_t i = 0; i < smtp->sendingResult.size(); i++)
+      {
+        /* Get the result item */
+        SMTP_Result result = smtp->sendingResult.getItem(i);
+  
+        // In case, ESP32, ESP8266 and SAMD device, the timestamp get from result.timestamp should be valid if
+        // your device time was synched with NTP server.
+        // Other devices may show invalid timestamp as the device time was not set i.e. it will show Jan 1, 1970.
+        // You can call smtp.setSystemTime(xxx) to set device time manually. Where xxx is timestamp (seconds since Jan 1, 1970)
+        time_t ts = (time_t)result.timestamp;
+  
+        ESP_MAIL_PRINTF("Message No: %d\n", i + 1);
+        ESP_MAIL_PRINTF("Status: %s\n", result.completed ? "success" : "failed");
+        ESP_MAIL_PRINTF("Date/Time: %s\n", asctime(localtime(&ts)));
+        ESP_MAIL_PRINTF("Recipient: %s\n", result.recipients.c_str());
+        ESP_MAIL_PRINTF("Subject: %s\n", result.subject.c_str());
+      }
+      Serial.println("----------------\n");
+      Serial.println("Success!");
+    }
+    mailSent = true;
+  } 
+}
+
+
 
 void SendMail(String textMsg)
 {
+  
+  smtp = new(SMTPSession);
+  
   mailSent = false;
   
   if(debug)
@@ -124,7 +174,7 @@ void SendMail(String textMsg)
   }
 
   /*  Set the network reconnection option */
-  MailClient.networkReconnect(true);
+  MailClient.networkReconnect(false);
 
   /** Enable the debug via Serial port
    * 0 for no debugging
@@ -132,25 +182,25 @@ void SendMail(String textMsg)
    *
    * Debug port can be changed via ESP_MAIL_DEFAULT_DEBUG_PORT in ESP_Mail_FS.h
    */
-  smtp.debug(debug);
+  smtp->debug(debug);
 
   /* Set the callback function to get the sending results */
-  smtp.callback(smtpCallback);
+  smtp->callback(smtpCallback);
 
   /* Declare the ESP_Mail_Session for user defined session credentials */
-  ESP_Mail_Session session;
+  session = new(ESP_Mail_Session);
 
   /* Set the session config */
-  session.server.host_name = SMTP_HOST;
-  session.server.port = SMTP_PORT;
-  session.login.email = AUTHOR_EMAIL;
-  session.login.password = AUTHOR_PASSWORD;
-  session.login.user_domain = F(USER_DOMAIN);
+  session->server.host_name = SMTP_HOST;
+  session->server.port = SMTP_PORT;
+  session->login.email = AUTHOR_EMAIL;
+  session->login.password = AUTHOR_PASSWORD;
+  session->login.user_domain = F(USER_DOMAIN);
 
   /* Set the NTP config time */
-  session.time.ntp_server = F("pool.ntp.org,time.nist.gov");
-  session.time.gmt_offset = 0;
-  session.time.day_light_offset = 0;
+  session->time.ntp_server = F(NTP_SERVER);
+  session->time.gmt_offset = 0;
+  session->time.day_light_offset = 0;
 
   /** In ESP32, timezone environment will not keep after wake up boot from sleep.
    * The local time will equal to GMT time.
@@ -173,14 +223,14 @@ void SendMail(String textMsg)
    */
 
   /* Declare the message class */
-  SMTP_Message message;
+  message = new(SMTP_Message);
 
   /* Set the message headers */
-  message.sender.name = F("ESP Mail"); // This witll be used with 'MAIL FROM' command and 'From' header field.
-  message.sender.email = AUTHOR_EMAIL; // This witll be used with 'From' header field.
-  message.subject = F("Lemon Tree");
-  message.addRecipient(F(RECIPIENT), F(DESTINATION)); // This will be used with RCPT TO command and 'To' header field.
-  message.text.content = textMsg;
+  message->sender.name = F(SENDER); // This witll be used with 'MAIL FROM' command and 'From' header field.
+  message->sender.email = AUTHOR_EMAIL; // This witll be used with 'From' header field.
+  message->subject = F(SUBJECT);
+  message->addRecipient(F(RECIPIENT), F(DESTINATION)); // This will be used with RCPT TO command and 'To' header field.
+  message->text.content = textMsg;
 
   /** If the message to send is a large string, to reduce the memory used from internal copying  while sending,
    * you can assign string to message.text.blob by cast your string to uint8_t array like this
@@ -202,7 +252,7 @@ void SendMail(String textMsg)
    * utf-7
    * The default value is utf-8
    */
-  message.text.charSet = F("us-ascii");
+  message->text.charSet = F("us-ascii");
 
   /** The content transfer encoding e.g.
    * enc_7bit or "7bit" (not encoded)
@@ -212,11 +262,7 @@ void SendMail(String textMsg)
    * enc_8bit or "8bit" (not encoded)
    * The default value is "7bit"
    */
-  message.text.transfer_encoding = Content_Transfer_Encoding::enc_7bit;
-
-  // If this is a reply message
-  // message.in_reply_to = "<parent message id>";
-  // message.references = "<parent references> <parent message id>";
+  message->text.transfer_encoding = Content_Transfer_Encoding::enc_7bit;
 
   /** The message priority
    * esp_mail_smtp_priority_high or 1
@@ -224,10 +270,7 @@ void SendMail(String textMsg)
    * esp_mail_smtp_priority_low or 5
    * The default value is esp_mail_smtp_priority_low
    */
-  message.priority = esp_mail_smtp_priority::esp_mail_smtp_priority_low;
-
-  // message.response.reply_to = "someone@somemail.com";
-  // message.response.return_path = "someone@somemail.com";
+  message->priority = esp_mail_smtp_priority::esp_mail_smtp_priority_low;
 
   /** The Delivery Status Notifications e.g.
    * esp_mail_smtp_notify_never
@@ -236,10 +279,10 @@ void SendMail(String textMsg)
    * esp_mail_smtp_notify_delay
    * The default value is esp_mail_smtp_notify_never
    */
-  // message.response.notify = esp_mail_smtp_notify_success | esp_mail_smtp_notify_failure | esp_mail_smtp_notify_delay;
+  // message->response.notify = esp_mail_smtp_notify_success | esp_mail_smtp_notify_failure | esp_mail_smtp_notify_delay;
 
   /* Set the custom message header */
-  message.addHeader(F("Message-ID: <abcde.fghij@gmail.com>"));
+  message->addHeader(F(MESSAGE_ID));
 
   // For Root CA certificate verification (ESP8266 and ESP32 only)
   // session.certificate.cert_data = rootCACert;
@@ -259,71 +302,39 @@ void SendMail(String textMsg)
   // Time can be set manually with provided timestamp to function smtp.setSystemTime.
 
   /* Connect to the server */
-  if (!smtp.connect(&session /* session credentials */))
-    return;
-
-  /* Start sending Email and close the session */
-  if (!MailClient.sendMail(&smtp, &message))
+  if (!smtp->connect(session))
   {
+    smtp->sendingResult.clear();
+    delete message;
+    delete session;
+    delete smtp;
     if(debug)
-      Serial.println("Error sending Email, " + smtp.errorReason());
+      Serial.println("Mail - connect failed");
+    return;
   }
 
-  // to clear sending result log
-  // smtp.sendingResult.clear();
+  /* Start sending Email and close the session */
+  if (!MailClient.sendMail(smtp, message))
+  {
+    if(debug)
+      Serial.println("Error sending Email, " + smtp->errorReason());
+  }
+
+  // Needed to avoid memory leak.
+  smtp->sendingResult.clear();
 
   if(debug)
     ESP_MAIL_PRINTF("Free Heap: %d\n", MailClient.getFreeHeap());
+
+  delete message;
+  delete session;
+  delete smtp;
+  if(debug)
+    Serial.println("Mail call complete");
 }
 
 
 
-/* Callback function to get the Email sending status */
-void smtpCallback(SMTP_Status status)
-{
-  if(!debug)
-    return;
-    
-  /* Print the current status */
-  Serial.println(status.info());
-
-  /* Print the sending result */
-  if (status.success())
-  {
-    // ESP_MAIL_PRINTF used in the examples is for format printing via debug Serial port
-    // that works for all supported Arduino platform SDKs e.g. AVR, SAMD, ESP32 and ESP8266.
-    // In ESP32 and ESP32, you can use Serial.printf directly.
-
-    Serial.println("----------------");
-    ESP_MAIL_PRINTF("Message sent success: %d\n", status.completedCount());
-    ESP_MAIL_PRINTF("Message sent failed: %d\n", status.failedCount());
-    Serial.println("----------------\n");
-
-    for (size_t i = 0; i < smtp.sendingResult.size(); i++)
-    {
-      /* Get the result item */
-      SMTP_Result result = smtp.sendingResult.getItem(i);
-
-      // In case, ESP32, ESP8266 and SAMD device, the timestamp get from result.timestamp should be valid if
-      // your device time was synched with NTP server.
-      // Other devices may show invalid timestamp as the device time was not set i.e. it will show Jan 1, 1970.
-      // You can call smtp.setSystemTime(xxx) to set device time manually. Where xxx is timestamp (seconds since Jan 1, 1970)
-      time_t ts = (time_t)result.timestamp;
-
-      ESP_MAIL_PRINTF("Message No: %d\n", i + 1);
-      ESP_MAIL_PRINTF("Status: %s\n", result.completed ? "success" : "failed");
-      ESP_MAIL_PRINTF("Date/Time: %s\n", asctime(localtime(&ts)));
-      ESP_MAIL_PRINTF("Recipient: %s\n", result.recipients.c_str());
-      ESP_MAIL_PRINTF("Subject: %s\n", result.subject.c_str());
-    }
-    Serial.println("----------------\n");
-    Serial.println("Success!");
-    mailSent = true;
-
-    // You need to clear sending result as the memory usage will grow up.
-    smtp.sendingResult.clear();
-  } 
-}
 
 
 void setup()
@@ -362,7 +373,7 @@ void setup()
   u8g2.sendBuffer();
   delay(1000);
   lastTim = millis();
-  interval = 1000*60; //*24*3600; // One day in ms.
+  interval = 1000*20; //*24*3600; // One day in ms.
 
 
 }
@@ -413,11 +424,6 @@ void loop()
       if(!mailSent)
       {
         delay(tryMailAgain);
-        SendMail(toSend);
-        if(!mailSent)
-        {
-          delay(tryMailAgain);
-        }
       } else
       {
         lastTim = tim;
