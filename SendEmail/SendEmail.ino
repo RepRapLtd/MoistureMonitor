@@ -53,6 +53,7 @@ float wet = 970.0;
 float threshold = 40.0;
 char warn = ' ';
 
+/*
 unsigned long tim, lastTim, interval;
 
 unsigned long tryMailAgain = 10000;
@@ -73,15 +74,15 @@ unsigned long tryMailAgain = 10000;
 #include <ESP_Mail_Client.h>
 
 
-/** For Gmail, the app password will be used for log in
- *  Check out https://github.com/mobizt/ESP-Mail-Client#gmail-smtp-and-imap-required-app-passwords-to-sign-in
- *
- * For Yahoo mail, log in to your yahoo mail in web browser and generate app password by go to
- * https://login.yahoo.com/account/security/app-passwords/add/confirm?src=noSrc
- *
- * To use Gmai and Yahoo's App Password to sign in, define the AUTHOR_PASSWORD with your App Password
- * and AUTHOR_EMAIL with your account email.
- */
+//  For Gmail, the app password will be used for log in
+//  Check out https://github.com/mobizt/ESP-Mail-Client#gmail-smtp-and-imap-required-app-passwords-to-sign-in
+//
+// For Yahoo mail, log in to your yahoo mail in web browser and generate app password by go to
+// https://login.yahoo.com/account/security/app-passwords/add/confirm?src=noSrc
+//
+// To use Gmai and Yahoo's App Password to sign in, define the AUTHOR_PASSWORD with your App Password
+// and AUTHOR_EMAIL with your account email.
+//
 
 
 
@@ -98,15 +99,15 @@ SMTPSession *smtp;
 ESP_Mail_Session* session;
 SMTP_Message* message;
 
-/* Callback function to get the Email sending status */
+// Callback function to get the Email sending status 
 void smtpCallback(SMTP_Status status)
 {
     
-  /* Print the current status */
+  // Print the current status
   if(debug)
     Serial.println(status.info());
 
-  /* Print the sending result */
+  // Print the sending result 
   if (status.success())
   {
     if(debug)
@@ -122,7 +123,7 @@ void smtpCallback(SMTP_Status status)
   
       for (size_t i = 0; i < smtp->sendingResult.size(); i++)
       {
-        /* Get the result item */
+        // Get the result item 
         SMTP_Result result = smtp->sendingResult.getItem(i);
   
         // In case, ESP32, ESP8266 and SAMD device, the timestamp get from result.timestamp should be valid if
@@ -173,115 +174,115 @@ void SendMail(String textMsg)
     Serial.println();
   }
 
-  /*  Set the network reconnection option */
+  //  Set the network reconnection option 
   MailClient.networkReconnect(false);
 
-  /** Enable the debug via Serial port
-   * 0 for no debugging
-   * 1 for basic level debugging
-   *
-   * Debug port can be changed via ESP_MAIL_DEFAULT_DEBUG_PORT in ESP_Mail_FS.h
-   */
+  // Enable the debug via Serial port
+  // 0 for no debugging
+  // 1 for basic level debugging
+  //
+  // Debug port can be changed via ESP_MAIL_DEFAULT_DEBUG_PORT in ESP_Mail_FS.h
+  
   smtp->debug(debug);
 
-  /* Set the callback function to get the sending results */
+  // Set the callback function to get the sending results
   smtp->callback(smtpCallback);
 
-  /* Declare the ESP_Mail_Session for user defined session credentials */
+  // Declare the ESP_Mail_Session for user defined session credentials 
   session = new(ESP_Mail_Session);
 
-  /* Set the session config */
+  // Set the session config
   session->server.host_name = SMTP_HOST;
   session->server.port = SMTP_PORT;
   session->login.email = AUTHOR_EMAIL;
   session->login.password = AUTHOR_PASSWORD;
   session->login.user_domain = F(USER_DOMAIN);
 
-  /* Set the NTP config time */
+  // Set the NTP config time
   session->time.ntp_server = F(NTP_SERVER);
   session->time.gmt_offset = 0;
   session->time.day_light_offset = 0;
 
-  /** In ESP32, timezone environment will not keep after wake up boot from sleep.
-   * The local time will equal to GMT time.
-   *
-   * To sync or set time with NTP server with the valid local time after wake up boot,
-   * set both gmt and day light offsets to 0 and assign the timezone environment string e.g.
-     session.time.ntp_server = F("pool.ntp.org,time.nist.gov");
-     session.time.gmt_offset = 0;
-     session.time.day_light_offset = 0;
-     session.time.timezone_env_string = "JST-9"; // for Tokyo
-   * The library will get (sync) the time from NTP server without GMT time offset adjustment
-   * and set the timezone environment variable later.
-   *
-   * This timezone environment string will be stored to flash or SD file named "/tz_env.txt"
-   * which set via session.time.timezone_file.
-   *
-   * See the timezone environment string list from
-   * https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
-   *
-   */
+  // In ESP32, timezone environment will not keep after wake up boot from sleep.
+  // The local time will equal to GMT time.
+  //
+  // To sync or set time with NTP server with the valid local time after wake up boot,
+  // set both gmt and day light offsets to 0 and assign the timezone environment string e.g.
+  // session.time.ntp_server = F("pool.ntp.org,time.nist.gov");
+  // session.time.gmt_offset = 0;
+  // session.time.day_light_offset = 0;
+  // session.time.timezone_env_string = "JST-9"; // for Tokyo
+  // The library will get (sync) the time from NTP server without GMT time offset adjustment
+  // and set the timezone environment variable later.
+  //
+  // This timezone environment string will be stored to flash or SD file named "/tz_env.txt"
+  // which set via session.time.timezone_file.
+  //
+  // See the timezone environment string list from
+  // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
+  //
+  
 
-  /* Declare the message class */
+  // Declare the message class
   message = new(SMTP_Message);
 
-  /* Set the message headers */
+  // Set the message headers
   message->sender.name = F(SENDER); // This witll be used with 'MAIL FROM' command and 'From' header field.
   message->sender.email = AUTHOR_EMAIL; // This witll be used with 'From' header field.
   message->subject = F(SUBJECT);
   message->addRecipient(F(RECIPIENT), F(DESTINATION)); // This will be used with RCPT TO command and 'To' header field.
   message->text.content = textMsg;
 
-  /** If the message to send is a large string, to reduce the memory used from internal copying  while sending,
-   * you can assign string to message.text.blob by cast your string to uint8_t array like this
-   *
-   * String myBigString = "..... ......";
-   * message.text.blob.data = (uint8_t *)myBigString.c_str();
-   * message.text.blob.size = myBigString.length();
-   *
-   * or assign string to message.text.nonCopyContent, like this
-   *
-   * message.text.nonCopyContent = myBigString.c_str();
-   *
-   * Only base64 encoding is supported for content transfer encoding in this case.
-   */
+  // If the message to send is a large string, to reduce the memory used from internal copying  while sending,
+  // you can assign string to message.text.blob by cast your string to uint8_t array like this
+  //
+  // String myBigString = "..... ......";
+  // message.text.blob.data = (uint8_t *)myBigString.c_str();
+  // message.text.blob.size = myBigString.length();
+  //
+  // or assign string to message.text.nonCopyContent, like this
+  //
+  // message.text.nonCopyContent = myBigString.c_str();
+  //
+  // Only base64 encoding is supported for content transfer encoding in this case.
+   
 
-  /** The Plain text message character set e.g.
-   * us-ascii
-   * utf-8
-   * utf-7
-   * The default value is utf-8
-   */
+  // The Plain text message character set e.g.
+  // us-ascii
+  // utf-8
+  // utf-7
+  // The default value is utf-8
+  
   message->text.charSet = F("us-ascii");
 
-  /** The content transfer encoding e.g.
-   * enc_7bit or "7bit" (not encoded)
-   * enc_qp or "quoted-printable" (encoded)
-   * enc_base64 or "base64" (encoded)
-   * enc_binary or "binary" (not encoded)
-   * enc_8bit or "8bit" (not encoded)
-   * The default value is "7bit"
-   */
+  // The content transfer encoding e.g.
+  // enc_7bit or "7bit" (not encoded)
+  // enc_qp or "quoted-printable" (encoded)
+  // enc_base64 or "base64" (encoded)
+  // enc_binary or "binary" (not encoded)
+  // enc_8bit or "8bit" (not encoded)
+  // The default value is "7bit"
+   
   message->text.transfer_encoding = Content_Transfer_Encoding::enc_7bit;
 
-  /** The message priority
-   * esp_mail_smtp_priority_high or 1
-   * esp_mail_smtp_priority_normal or 3
-   * esp_mail_smtp_priority_low or 5
-   * The default value is esp_mail_smtp_priority_low
-   */
+  // The message priority
+  // esp_mail_smtp_priority_high or 1
+  // esp_mail_smtp_priority_normal or 3
+  // esp_mail_smtp_priority_low or 5
+  // The default value is esp_mail_smtp_priority_low
+   
   message->priority = esp_mail_smtp_priority::esp_mail_smtp_priority_low;
 
-  /** The Delivery Status Notifications e.g.
-   * esp_mail_smtp_notify_never
-   * esp_mail_smtp_notify_success
-   * esp_mail_smtp_notify_failure
-   * esp_mail_smtp_notify_delay
-   * The default value is esp_mail_smtp_notify_never
-   */
+  // The Delivery Status Notifications e.g.
+  // esp_mail_smtp_notify_never
+  // esp_mail_smtp_notify_success
+  // esp_mail_smtp_notify_failure
+  // esp_mail_smtp_notify_delay
+  // The default value is esp_mail_smtp_notify_never
+  
   // message->response.notify = esp_mail_smtp_notify_success | esp_mail_smtp_notify_failure | esp_mail_smtp_notify_delay;
 
-  /* Set the custom message header */
+  // Set the custom message header
   message->addHeader(F(MESSAGE_ID));
 
   // For Root CA certificate verification (ESP8266 and ESP32 only)
@@ -293,7 +294,7 @@ void SendMail(String textMsg)
 
   // The WiFiNINA firmware the Root CA certification can be added via the option in Firmware update tool in Arduino IDE
 
-  /* Connect to server with the session config */
+  // Connect to server with the session config
 
   // Library will be trying to sync the time with NTP server if time is never sync or set.
   // This is 10 seconds blocking process.
@@ -301,7 +302,7 @@ void SendMail(String textMsg)
   // You can manually sync time by yourself with NTP library or calling configTime in ESP32 and ESP8266.
   // Time can be set manually with provided timestamp to function smtp.setSystemTime.
 
-  /* Connect to the server */
+  // Connect to the server
   if (!smtp->connect(session))
   {
     smtp->sendingResult.clear();
@@ -313,7 +314,7 @@ void SendMail(String textMsg)
     return;
   }
 
-  /* Start sending Email and close the session */
+  // Start sending Email and close the session
   if (!MailClient.sendMail(smtp, message))
   {
     if(debug)
@@ -334,11 +335,12 @@ void SendMail(String textMsg)
 }
 
 
-
+*/
 
 
 void setup()
 {
+/*
   if(debug)
   {
     Serial.begin(115200);
@@ -355,7 +357,7 @@ void setup()
 
     
   }
-
+*/
     pinMode(aInPin, INPUT);
 
   // OLED graphics.
@@ -372,10 +374,11 @@ void setup()
   u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 0, chBuffer);
   u8g2.sendBuffer();
   delay(1000);
+/*
   lastTim = millis();
-  interval = 1000*20; //*24*3600; // One day in ms.
+  interval = 1000*24*3600; // One day in ms.
 
-
+*/
 }
 
 
@@ -383,10 +386,13 @@ void loop()
 {
 
   percentage = (float)analogRead(aInPin);
+/*  
   if(debug)
-  {
+  { 
     Serial.println(percentage);
   }
+*/
+  
   percentage = 100.0*(dry - percentage)/(dry - wet);
   average = (moving*average + percentage)/(moving + 1.0);
 
@@ -398,6 +404,7 @@ void loop()
   u8g2.drawStr(10, 10, chBuffer);
   u8g2.sendBuffer();
 
+/*
   if(average < threshold)
   {
     if(mailSent)
@@ -433,6 +440,6 @@ void loop()
       lastTim = tim;
     }
   }
-  
+*/  
   delay(1000);
 }
